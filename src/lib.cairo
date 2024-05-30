@@ -77,8 +77,8 @@ pub trait IHelloStarknet<TContractState> {
     fn frontend_borrow_apy(self: @TContractState, token: IERC20Dispatcher) -> u256;
 
     fn upgrade(ref self: TContractState, new_class_hash: ClassHash);
-    fn set_price(ref self: TContractState, token: ContractAddress, value: u256);
-    fn liquidate_single_user(ref self: TContractState, user: ContractAddress);
+    //fn set_price(ref self: TContractState, token: ContractAddress, value: u256);
+    //fn liquidate_single_user(ref self: TContractState, user: ContractAddress);
 }
 
 #[starknet::contract]
@@ -186,7 +186,7 @@ mod HelloStarknet {
         // USDC
         // Sepolia - the tokens used by ekubo - 0x07ab0b8855a61f480b4423c46c32fa7c553f0aac3531bbddaa282d86244f7a23
         // Mainnet - 0x053C91253BC9682c04929cA02ED00b3E423f6710D2ee7e0D5EBB06F3eCF368A8
-        let contract_address = contract_address_const::<0x07ab0b8855a61f480b4423c46c32fa7c553f0aac3531bbddaa282d86244f7a23>();
+        let contract_address = contract_address_const::<0x053C91253BC9682c04929cA02ED00b3E423f6710D2ee7e0D5EBB06F3eCF368A8>();
         let token = contract_address;
         self.map_tokens_to_tokenaddress.write(0, token);
         self.map_tokens_to_oraclekey.write(token, 'USDC/USD');
@@ -239,15 +239,15 @@ mod HelloStarknet {
 
         // Sepolia: 0x36031daa264c24520b11d93af622c848b2499b66b41d611bac95e13cfca131a
         // Mainnet: 0x2a85bd616f912537c50a49a4076db02c00b29b2cdc8a197ce92ed1837fa875b
-        let contract_address = contract_address_const::<0x36031daa264c24520b11d93af622c848b2499b66b41d611bac95e13cfca131a>();
+        let contract_address = contract_address_const::<0x2a85bd616f912537c50a49a4076db02c00b29b2cdc8a197ce92ed1837fa875b>();
         self.pragmaOracle.write(IPragmaABIDispatcher { contract_address });
         // With oracle: we can update every prices
         self.update_all_token_price();
 
         // Ekubo AMM
-        // Mainnet: 0x0199741822c2dc722f6f605204f35e56dbc23bceed54818168c4c49e4fb8737e
         // Sepolia: 0x0045f933adf0607292468ad1c1dedaa74d5ad166392590e72676a34d01d7b763
-        let contract_address = contract_address_const::<0x0045f933adf0607292468ad1c1dedaa74d5ad166392590e72676a34d01d7b763>();
+        // Mainnet: 0x0199741822c2dc722f6f605204f35e56dbc23bceed54818168c4c49e4fb8737e
+        let contract_address = contract_address_const::<0x0199741822c2dc722f6f605204f35e56dbc23bceed54818168c4c49e4fb8737e>();
         self.ekuboRouter.write(IRouterDispatcher { contract_address });
     }
 
@@ -274,7 +274,6 @@ mod HelloStarknet {
             }
         }
         fn deposit_token(ref self: ContractState, token: IERC20Dispatcher, amount: u256) {
-            self.hook();
             assert!(self.is_supported_token(token), "This token is not supported by the protocol.");
             self.register_user_if_needed();
             let user = get_caller_address();
@@ -286,8 +285,9 @@ mod HelloStarknet {
             self.map_users_deposited.write((user, token.contract_address), old_amount + amount);
             // Increase user points
             let old_points = self.map_users_points.read(user);
-            let delta_points = amount * self.map_tokens_to_price.read(token.contract_address);
+            let delta_points = 10000 * amount * self.map_tokens_to_price.read(token.contract_address);
             self.map_users_points.write(user, old_points + delta_points);
+            self.hook();
         }
         fn withdraw_token(ref self: ContractState, token: IERC20Dispatcher, amount: u256) {
             self.hook();
@@ -313,7 +313,6 @@ mod HelloStarknet {
             assert!(!self.do_we_liq(user), "You are above liquidation threshold, please borrow less");
         }
         fn repay_token(ref self: ContractState, token: IERC20Dispatcher, amount: u256) {
-            self.hook();
             assert!(self.is_supported_token(token), "This token is not supported by the protocol.");
             self.register_user_if_needed();
             let user = get_caller_address();
@@ -322,6 +321,7 @@ mod HelloStarknet {
             token.transferFrom(user, contract, amount);
             let old_amount = self.map_users_borrowed.read((user, token.contract_address));
             self.map_users_borrowed.write((user, token.contract_address), old_amount - amount);
+            self.hook();
         }
         fn change_token_to_use(ref self: ContractState, token: IERC20Dispatcher) {
             self.hook();
@@ -742,13 +742,13 @@ mod HelloStarknet {
             replace_class_syscall(new_class_hash).unwrap();
         }
 
-        fn set_price(ref self: ContractState, token: ContractAddress, value: u256) {
-            self.map_tokens_to_price.write(token, value);
-        }
-        fn liquidate_single_user(ref self: ContractState, user: ContractAddress) {
-            self.are_we_in_hook.write(true);
-            self.try_to_liq_user(user);
-            self.are_we_in_hook.write(false);
-        }
+        // fn set_price(ref self: ContractState, token: ContractAddress, value: u256) {
+        //     self.map_tokens_to_price.write(token, value);
+        // }
+        // fn liquidate_single_user(ref self: ContractState, user: ContractAddress) {
+        //     self.are_we_in_hook.write(true);
+        //     self.try_to_liq_user(user);
+        //     self.are_we_in_hook.write(false);
+        // }
     }
 }
