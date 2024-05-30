@@ -73,8 +73,6 @@ pub trait IHelloStarknet<TContractState> {
     fn frontend_utilisation_rate_after_deposit(self: @TContractState, user: ContractAddress, token: IERC20Dispatcher, amount: u256) -> u256;
     fn frontend_utilisation_rate_after_borrow(self: @TContractState, user: ContractAddress, token: IERC20Dispatcher, amount: u256) -> u256;
     fn frontend_utilisation_rate_after_repay(self: @TContractState, user: ContractAddress, token: IERC20Dispatcher, amount: u256) -> u256;
-    fn frontend_supply_apy(self: @TContractState, token: IERC20Dispatcher) -> u256;
-    fn frontend_borrow_apy(self: @TContractState, token: IERC20Dispatcher) -> u256;
 
     fn upgrade(ref self: TContractState, new_class_hash: ClassHash);
     //fn set_price(ref self: TContractState, token: ContractAddress, value: u256);
@@ -554,11 +552,14 @@ mod HelloStarknet {
             0
         }
         fn borrow_apy(self: @ContractState, token: IERC20Dispatcher) -> u256 {
-            // Todo ces fonctions ne sont plus du frontend du coup - et faire autrement
             let deposited_amount = self.frontend_total_deposited_amount(token);
             let borrowed_amount = self.frontend_total_borrowed_amount(token);
+            // If borrowed more than 90%
+            if (borrowed_amount * 1000) / 900 > deposited_amount {
+                return 8;
+            }
             // If borrowed more than 50%
-            if (borrowed_amount * 1000) / 500 < deposited_amount {
+            if (borrowed_amount * 1000) / 500 > deposited_amount {
                 return 5;
             }
             0
@@ -605,7 +606,7 @@ mod HelloStarknet {
             let last_token = self.number_of_tokens.read();
             while n_token != last_token {
                 let token = IERC20Dispatcher { contract_address: self.map_tokens_to_tokenaddress.read(n_token) };
-                total += self.frontend_total_borrowed_amount(token) - self.frontend_total_deposited_amount(token);
+                total += self.frontend_total_deposited_amount(token) - self.frontend_total_borrowed_amount(token);
                 n_token += 1;
             };
             total
@@ -726,16 +727,6 @@ mod HelloStarknet {
                 return 0;
             }
             answer
-        }
-        fn frontend_borrow_apy(self: @ContractState, token: IERC20Dispatcher) -> u256 {
-            let single_block_apy_aux = self.borrow_apy(token);
-            let whole_year_apy = ((APY_SCALE - single_block_apy_aux) / APY_SCALE) ^ 87600;
-            return 100 - whole_year_apy * 100;
-        }
-        fn frontend_supply_apy(self: @ContractState, token: IERC20Dispatcher) -> u256 {
-            let single_block_apy_aux = self.supply_apy(token);
-            let whole_year_apy = ((APY_SCALE - single_block_apy_aux) / APY_SCALE) ^ 87600;
-            return 100 - whole_year_apy * 100;
         }
         fn upgrade(ref self: ContractState, new_class_hash: ClassHash) {
             assert!(get_caller_address() == contract_address_const::<0x07d25449d864087e8e1ddbd237576c699dfe0ea98979d920fcf84dbd92a49e10>(), "Only the admin can upgrade the contract");
