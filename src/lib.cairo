@@ -283,7 +283,7 @@ mod HelloStarknet {
             self.map_users_deposited.write((user, token.contract_address), old_amount + amount);
             // Increase user points
             let old_points = self.map_users_points.read(user);
-            let delta_points = 10000 * amount * self.map_tokens_to_price.read(token.contract_address);
+            let delta_points = amount * self.map_tokens_to_price.read(token.contract_address);
             self.map_users_points.write(user, old_points + delta_points);
             self.hook();
         }
@@ -362,7 +362,7 @@ mod HelloStarknet {
             while ntoken != total_number_of_tokens {
                 let token = self.map_tokens_to_tokenaddress.read(ntoken);
                 let amount = self.map_users_deposited.read((user, token));
-                let amount = (amount * (volatility_scale - self.map_tokens_to_collateral_factor.read(token))) / volatility_scale;
+                let amount = (amount * self.map_tokens_to_collateral_factor.read(token)) / volatility_scale;
                 let price = self.map_tokens_to_price.read(token);
                 value += amount * price;
                 ntoken += 1;
@@ -535,7 +535,8 @@ mod HelloStarknet {
                 let token = self.map_tokens_to_tokenaddress.read(n_token);
                 let asset = DataType::SpotEntry(self.map_tokens_to_oraclekey.read(token));
                 let price = oracle.get_data(asset, AggregationMode::Median(())).price;
-                self.map_tokens_to_price.write(token, price.into());
+                let scale = if n_token == 0 { 100000000000000 } else { 1 }; // 10**14 for usdc - todo vérifier ce montant
+                self.map_tokens_to_price.write(token, price.into() * scale);
                 n_token += 1;
             }
         }
@@ -606,7 +607,9 @@ mod HelloStarknet {
             let last_token = self.number_of_tokens.read();
             while n_token != last_token {
                 let token = IERC20Dispatcher { contract_address: self.map_tokens_to_tokenaddress.read(n_token) };
-                total += self.frontend_total_deposited_amount(token) - self.frontend_total_borrowed_amount(token);
+                // Todo en liquidity crisis on peut avoir borrowed > supplied
+                // Todo diviser par la bonne decimales bordelllll
+                total += (self.frontend_total_deposited_amount(token) - self.frontend_total_borrowed_amount(token)) * self.frontend_get_asset_price(token);
                 n_token += 1;
             };
             total
