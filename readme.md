@@ -3,6 +3,12 @@
 0lid lend.
 A lending platform where every interaction with the protocol liquidate every eligible positions.
 
+Associated frontend: https://github.com/zkcairo/0liqlend-frontend/tree/55e4f73ce7a77e5bf66a6446672d9a343a65bebd
+
+
+
+--
+
 ## Risks of using the app:
 
 The code is not audited. It could have bugs that could result in total loss of funds.
